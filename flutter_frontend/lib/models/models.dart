@@ -3,12 +3,18 @@ class Exercise {
   final String name;
   final String muscleGroup;
   final int defaultRestSeconds;
+  final String description;
+  final String tips;
+  final String imageUrl;
 
   Exercise({
     required this.id,
     required this.name,
     required this.muscleGroup,
     required this.defaultRestSeconds,
+    this.description = '',
+    this.tips = '',
+    this.imageUrl = '',
   });
 
   factory Exercise.fromJson(Map<String, dynamic> json) {
@@ -17,6 +23,9 @@ class Exercise {
       name: json['name'],
       muscleGroup: json['muscle_group'],
       defaultRestSeconds: json['default_rest_seconds'] ?? 90,
+      description: json['description'] ?? 'Keine Beschreibung verfügbar.',
+      tips: json['tips'] ?? 'Keine Tipps hinterlegt.',
+      imageUrl: json['image_url'] ?? '',
     );
   }
 }

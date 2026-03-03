@@ -16,6 +16,20 @@ class ApiService {
     throw Exception('Fehler beim Laden der Übungen');
   }
 
+  static Future<void> createCustomExercise(String name, String muscleGroup) async {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/exercises'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'name': name,
+        'muscle_group': muscleGroup,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Fehler beim Erstellen der Übung');
+    }
+  }
+
   // --- 2. WORKOUTS ---
   static Future<void> saveWorkoutSet({
     required int exerciseId,
@@ -71,5 +85,51 @@ class ApiService {
       return data;
     }
     throw Exception('Fehler beim Laden des PRs');
+  }
+
+  static Future<List<dynamic>> getExerciseHistory(int exerciseId) async {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/history/$exerciseId'),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Fehler beim Laden der Historie');
+  }
+
+  static Future<List<dynamic>> getMuscleDistribution() async {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/stats/distribution'),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body);
+    }
+    throw Exception('Fehler beim Laden der Verteilung');
+  }
+
+  // --- 4. KÖRPERDATEN ---
+  static Future<void> saveMeasurement(String type, double value) async {
+    final response = await http.post(
+      Uri.parse('${AppConstants.baseUrl}/measurements'),
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'type': type,
+        'value': value,
+      }),
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Fehler beim Speichern der Körperdaten');
+    }
+  }
+
+  static Future<List<Measurement>> getMeasurements(String type) async {
+    final response = await http.get(
+      Uri.parse('${AppConstants.baseUrl}/measurements/$type'),
+    );
+    if (response.statusCode == 200) {
+      final List data = json.decode(response.body);
+      return data.map((json) => Measurement.fromJson(json)).toList();
+    }
+    throw Exception('Fehler beim Laden der Körperdaten');
   }
 }

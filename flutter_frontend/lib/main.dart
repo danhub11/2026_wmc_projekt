@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'core/constants.dart';
 import 'screens/home_screen.dart';
+import 'screens/library_screen.dart';
+import 'screens/workout_screen.dart';
+import 'screens/progress_screen.dart';
 
 void main() {
   runApp(const IronLogApp());
@@ -72,29 +75,9 @@ class _MainNavigationState extends State<MainNavigation> {
   }
 }
 
-class LibraryScreen extends StatelessWidget {
-  const LibraryScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(
-    child: Text('Library Screen', style: TextStyle(fontSize: 24)),
-  );
-}
 
-class WorkoutScreen extends StatelessWidget {
-  const WorkoutScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(
-    child: Text('Workout Screen', style: TextStyle(fontSize: 24)),
-  );
-}
 
-class ProgressScreen extends StatelessWidget {
-  const ProgressScreen({super.key});
-  @override
-  Widget build(BuildContext context) => const Center(
-    child: Text('Progress Screen', style: TextStyle(fontSize: 24)),
-  );
-}
+
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
