@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../core/constants.dart';
+import '../core/settings_manager.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 
@@ -90,12 +90,17 @@ class _ProgressScreenState extends State<ProgressScreen> {
     final weightText = _weightController.text;
     if (weightText.isEmpty) return;
 
-    final weight = double.tryParse(weightText.replaceAll(',', '.'));
-    if (weight == null) return;
+    final inputValue = double.tryParse(weightText.replaceAll(',', '.'));
+    if (inputValue == null) return;
+
+    // Immer in kg speichern
+    final weightKg = settingsManager.useKg
+        ? inputValue
+        : inputValue * 0.45359237;
 
     setState(() => _isLoading = true);
     try {
-      await ApiService.saveMeasurement('weight', weight);
+      await ApiService.saveMeasurement('weight', weightKg);
       final weights = await ApiService.getMeasurements('weight');
       setState(() {
         _weightMeasurements = weights;
@@ -108,11 +113,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
     }
   }
 
-  List<PieChartSectionData> _generatePieSections() {
+  List<PieChartSectionData> _generatePieSections(Color primaryColor) {
     if (_muscleDistribution.isEmpty) return [];
 
     final List<Color> colors = [
-      AppConstants.primaryOrange,
+      primaryColor,
       Colors.blueAccent,
       Colors.greenAccent,
       Colors.purpleAccent,
@@ -128,21 +133,29 @@ class _ProgressScreenState extends State<ProgressScreen> {
         value: data['set_count'].toDouble(),
         title: '${data['muscle_group']}\n(${data['set_count']})',
         radius: 60,
-        titleStyle: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.white),
+        titleStyle: const TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
       );
     }).toList();
   }
 
   List<FlSpot> _generateHistorySpots() {
     if (_exerciseHistory.isEmpty) return [];
-    
+
     // Gruppiere nach Datum und finde das Max-Gewicht pro Tag für den Chart
     Map<String, double> dailyMax = {};
     for (var set in _exerciseHistory) {
       String date = set['date'].toString().substring(0, 10);
-      double weight = (set['weight_kg'] as num).toDouble();
-      if (!dailyMax.containsKey(date) || weight > dailyMax[date]!) {
-        dailyMax[date] = weight;
+      double weightKg = (set['weight_kg'] as num).toDouble();
+      // Für den Chart in der gewünschten Einheit anzeigen
+      double displayWeight = settingsManager.useKg
+          ? weightKg
+          : weightKg / 0.45359237;
+      if (!dailyMax.containsKey(date) || displayWeight > dailyMax[date]!) {
+        dailyMax[date] = displayWeight;
       }
     }
 
@@ -152,241 +165,429 @@ class _ProgressScreenState extends State<ProgressScreen> {
     }).toList();
   }
 
+  String _formatWeight(double kg) {
+    if (settingsManager.useKg) {
+      final v = kg == kg.truncateToDouble()
+          ? kg.toInt().toString()
+          : kg.toStringAsFixed(1);
+      return '$v kg';
+    } else {
+      final lbs = kg / 0.45359237;
+      final v = lbs == lbs.truncateToDouble()
+          ? lbs.toInt().toString()
+          : lbs.toStringAsFixed(1);
+      return '$v lbs';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppConstants.backgroundDark,
-        elevation: 0,
-        title: const Text(
-          'Fortschritt',
-          style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-      ),
-      body: _isLoading && _allExercises.isEmpty
-          ? const Center(child: CircularProgressIndicator(color: AppConstants.primaryOrange))
-          : RefreshIndicator(
-              color: AppConstants.primaryOrange,
-              onRefresh: _loadInitialData,
-              child: ListView(
-                padding: const EdgeInsets.all(16.0),
-                children: [
-                  // --- KÖRPERGEWICHT ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppConstants.cardDark, borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.scale, color: AppConstants.primaryOrange),
-                            SizedBox(width: 8),
-                            Text('Körpergewicht', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (_weightMeasurements.isNotEmpty)
-                          Text(
-                            'Aktuell: ${_weightMeasurements.last.value} kg',
-                            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
-                          ),
-                        const SizedBox(height: 16),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _weightController,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                style: const TextStyle(color: Colors.white),
-                                decoration: InputDecoration(
-                                  hintText: 'Gewicht eintragen (kg)',
-                                  hintStyle: const TextStyle(color: Colors.grey),
-                                  filled: true,
-                                  fillColor: Colors.grey[850],
-                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: AppConstants.primaryOrange,
-                                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                              ),
-                              onPressed: _saveWeight,
-                              child: const Text('Speichern', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+    return ListenableBuilder(
+      listenable: settingsManager,
+      builder: (context, _) {
+        final theme = Theme.of(context);
+        final primaryColor = theme.colorScheme.primary;
+        final cardColor = theme.colorScheme.surface;
+        final textColor = theme.colorScheme.onSurface;
+        final subtitleColor = theme.textTheme.bodySmall?.color ?? Colors.grey;
+        final fillColor = theme.inputDecorationTheme.fillColor ?? cardColor;
+        final gridLineColor = theme.dividerColor;
 
-                  // --- ÜBUNGS-ANALYSE (HEVY STYLE) ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppConstants.cardDark, borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
+        return Scaffold(
+          appBar: AppBar(title: const Text('Fortschritt')),
+          body: _isLoading && _allExercises.isEmpty
+              ? Center(child: CircularProgressIndicator(color: primaryColor))
+              : RefreshIndicator(
+                  color: primaryColor,
+                  onRefresh: _loadInitialData,
+                  child: ListView(
+                    padding: const EdgeInsets.all(16.0),
+                    children: [
+                      // --- KÖRPERGEWICHT ---
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.trending_up, color: AppConstants.primaryOrange),
-                            SizedBox(width: 8),
-                            Text('Übungs-Analyse', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        
-                        // Dropdown
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(color: Colors.grey[850], borderRadius: BorderRadius.circular(8)),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<Exercise>(
-                              isExpanded: true,
-                              dropdownColor: AppConstants.backgroundDark,
-                              value: _selectedExercise,
-                              icon: const Icon(Icons.keyboard_arrow_down, color: Colors.white),
-                              items: _allExercises.map((Exercise exercise) {
-                                return DropdownMenuItem<Exercise>(
-                                  value: exercise,
-                                  child: Text(exercise.name, style: const TextStyle(color: Colors.white)),
-                                );
-                              }).toList(),
-                              onChanged: (Exercise? newValue) {
-                                if (newValue != null) {
-                                  setState(() => _selectedExercise = newValue);
-                                  _loadExerciseStats(newValue.id);
-                                }
-                              },
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-
-                        if (_isLoading)
-                          const Center(child: Padding(padding: EdgeInsets.all(20.0), child: CircularProgressIndicator(color: AppConstants.primaryOrange)))
-                        else ...[
-                          // PR & Ranking Row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(8)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Personal Record', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _personalRecord != null ? '${_personalRecord!['max_weight']} kg' : '-',
-                                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
+                            Row(
+                              children: [
+                                Icon(Icons.scale, color: primaryColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Körpergewicht',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.all(12),
-                                  decoration: BoxDecoration(color: Colors.grey[900], borderRadius: BorderRadius.circular(8)),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      const Text('Global Ranking', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _ranking?.rank ?? 'Unrated',
-                                        style: TextStyle(color: _ranking?.rank != 'Unrated' ? AppConstants.primaryOrange : Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 24),
-
-                          // Line Chart
-                          if (_generateHistorySpots().isNotEmpty) ...[
-                            const Text('Gewichtsverlauf (Max pro Tag)', style: TextStyle(color: Colors.grey, fontSize: 14)),
+                              ],
+                            ),
                             const SizedBox(height: 16),
-                            SizedBox(
-                              height: 200,
-                              child: LineChart(
-                                LineChartData(
-                                  gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey[800], strokeWidth: 1)),
-                                  titlesData: const FlTitlesData(
-                                    topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                    rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                                    bottomTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)), // X-Achse vereinfacht
-                                    leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: true, reservedSize: 40)),
-                                  ),
-                                  borderData: FlBorderData(show: false),
-                                  lineBarsData: [
-                                    LineChartBarData(
-                                      spots: _generateHistorySpots(),
-                                      isCurved: true,
-                                      color: AppConstants.primaryOrange,
-                                      barWidth: 3,
-                                      isStrokeCapRound: true,
-                                      dotData: const FlDotData(show: true),
-                                      belowBarData: BarAreaData(show: true, color: AppConstants.primaryOrange.withOpacity(0.1)),
+                            if (_weightMeasurements.isNotEmpty)
+                              Text(
+                                'Aktuell: ${_formatWeight(_weightMeasurements.last.value)}',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                  color: textColor,
+                                ),
+                              ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _weightController,
+                                    keyboardType:
+                                        const TextInputType.numberWithOptions(
+                                          decimal: true,
+                                        ),
+                                    decoration: InputDecoration(
+                                      hintText: settingsManager.useKg
+                                          ? 'Gewicht eintragen (kg)'
+                                          : 'Gewicht eintragen (lbs)',
+                                      filled: true,
+                                      fillColor: fillColor,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 12,
+                                          ),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                        borderSide: BorderSide.none,
+                                      ),
                                     ),
-                                  ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: primaryColor,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                      horizontal: 20,
+                                    ),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  onPressed: _saveWeight,
+                                  child: const Text(
+                                    'Speichern',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // --- ÜBUNGS-ANALYSE ---
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.trending_up, color: primaryColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Übungs-Analyse',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+
+                            // Dropdown
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                color: fillColor,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<Exercise>(
+                                  isExpanded: true,
+                                  dropdownColor: theme.scaffoldBackgroundColor,
+                                  value: _selectedExercise,
+                                  icon: Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: textColor,
+                                  ),
+                                  items: _allExercises.map((Exercise exercise) {
+                                    return DropdownMenuItem<Exercise>(
+                                      value: exercise,
+                                      child: Text(
+                                        exercise.name,
+                                        style: TextStyle(color: textColor),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (Exercise? newValue) {
+                                    if (newValue != null) {
+                                      setState(
+                                        () => _selectedExercise = newValue,
+                                      );
+                                      _loadExerciseStats(newValue.id);
+                                    }
+                                  },
                                 ),
                               ),
                             ),
-                          ] else
-                            const Center(child: Text('Noch keine Daten für diese Übung.', style: TextStyle(color: Colors.grey))),
-                        ]
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                            const SizedBox(height: 24),
 
-                  // --- MUSKEL-VERTEILUNG (PIE CHART) ---
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(color: AppConstants.cardDark, borderRadius: BorderRadius.circular(16)),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.pie_chart, color: AppConstants.primaryOrange),
-                            SizedBox(width: 8),
-                            Text('Muskel-Fokus (All Time)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white)),
+                            if (_isLoading)
+                              Center(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(20.0),
+                                  child: CircularProgressIndicator(
+                                    color: primaryColor,
+                                  ),
+                                ),
+                              )
+                            else ...[
+                              // PR & Ranking Row
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: fillColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Personal Record',
+                                            style: TextStyle(
+                                              color: subtitleColor,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _personalRecord != null
+                                                ? _formatWeight(
+                                                    (_personalRecord!['max_weight']
+                                                            as num)
+                                                        .toDouble(),
+                                                  )
+                                                : '-',
+                                            style: TextStyle(
+                                              color: textColor,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: fillColor,
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Global Ranking',
+                                            style: TextStyle(
+                                              color: subtitleColor,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _ranking?.rank ?? 'Unrated',
+                                            style: TextStyle(
+                                              color: _ranking?.rank != 'Unrated'
+                                                  ? primaryColor
+                                                  : textColor,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 24),
+
+                              // Line Chart
+                              if (_generateHistorySpots().isNotEmpty) ...[
+                                Text(
+                                  'Gewichtsverlauf (Max pro Tag)',
+                                  style: TextStyle(
+                                    color: subtitleColor,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  height: 200,
+                                  child: LineChart(
+                                    LineChartData(
+                                      gridData: FlGridData(
+                                        show: true,
+                                        drawVerticalLine: false,
+                                        getDrawingHorizontalLine: (value) =>
+                                            FlLine(
+                                              color: gridLineColor,
+                                              strokeWidth: 1,
+                                            ),
+                                      ),
+                                      titlesData: FlTitlesData(
+                                        topTitles: const AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: false,
+                                          ),
+                                        ),
+                                        rightTitles: const AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: false,
+                                          ),
+                                        ),
+                                        bottomTitles: const AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: false,
+                                          ),
+                                        ),
+                                        leftTitles: AxisTitles(
+                                          sideTitles: SideTitles(
+                                            showTitles: true,
+                                            reservedSize: 40,
+                                            getTitlesWidget: (value, meta) =>
+                                                Text(
+                                                  meta.formattedValue,
+                                                  style: TextStyle(
+                                                    color: subtitleColor,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                          ),
+                                        ),
+                                      ),
+                                      borderData: FlBorderData(show: false),
+                                      lineBarsData: [
+                                        LineChartBarData(
+                                          spots: _generateHistorySpots(),
+                                          isCurved: true,
+                                          color: primaryColor,
+                                          barWidth: 3,
+                                          isStrokeCapRound: true,
+                                          dotData: const FlDotData(show: true),
+                                          belowBarData: BarAreaData(
+                                            show: true,
+                                            color: primaryColor.withValues(
+                                              alpha: 0.1,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ] else
+                                Center(
+                                  child: Text(
+                                    'Noch keine Daten für diese Übung.',
+                                    style: TextStyle(color: subtitleColor),
+                                  ),
+                                ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 24),
-                        if (_muscleDistribution.isEmpty)
-                          const Center(child: Text('Keine Daten verfügbar.', style: TextStyle(color: Colors.grey)))
-                        else
-                          SizedBox(
-                            height: 200,
-                            child: PieChart(
-                              PieChartData(
-                                sectionsSpace: 2,
-                                centerSpaceRadius: 40,
-                                sections: _generatePieSections(),
-                              ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // --- MUSKEL-VERTEILUNG (PIE CHART) ---
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: cardColor,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.pie_chart, color: primaryColor),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Muskel-Fokus (All Time)',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: textColor,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                      ],
-                    ),
+                            const SizedBox(height: 24),
+                            if (_muscleDistribution.isEmpty)
+                              Center(
+                                child: Text(
+                                  'Keine Daten verfügbar.',
+                                  style: TextStyle(color: subtitleColor),
+                                ),
+                              )
+                            else
+                              SizedBox(
+                                height: 200,
+                                child: PieChart(
+                                  PieChartData(
+                                    sectionsSpace: 2,
+                                    centerSpaceRadius: 40,
+                                    sections: _generatePieSections(
+                                      primaryColor,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+                    ],
                   ),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
+                ),
+        );
+      },
     );
   }
 }

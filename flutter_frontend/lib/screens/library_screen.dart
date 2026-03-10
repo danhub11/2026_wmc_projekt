@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
 import '../models/models.dart';
 import '../services/api_service.dart';
 
@@ -27,7 +26,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
     'Arms': 'Arme',
     'Core': 'Bauch',
     'Cardio': 'Cardio',
-    'Full Body': 'Ganzkörper'
+    'Full Body': 'Ganzkörper',
   };
 
   @override
@@ -71,17 +70,25 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() {
       _filteredExercises = _allExercises.where((exercise) {
         final matchesSearch = exercise.name.toLowerCase().contains(query);
-        final matchesGroup = _selectedMuscleGroup == 'All' || exercise.muscleGroup == _selectedMuscleGroup;
+        final matchesGroup =
+            _selectedMuscleGroup == 'All' ||
+            exercise.muscleGroup == _selectedMuscleGroup;
         return matchesSearch && matchesGroup;
       }).toList();
     });
   }
 
   void _showExerciseDetails(Exercise exercise) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final cardColor = theme.colorScheme.surface;
+    final textColor = theme.colorScheme.onSurface;
+    final subtitleColor = theme.textTheme.bodySmall?.color ?? Colors.grey;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppConstants.backgroundDark,
+      backgroundColor: cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -103,7 +110,7 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.white24,
+                        color: theme.dividerColor,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -111,46 +118,46 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   const SizedBox(height: 24),
                   Text(
                     exercise.name,
-                    style: const TextStyle(
-                      fontSize: 28, 
-                      fontWeight: FontWeight.bold, 
-                      color: Colors.white
+                    style: TextStyle(
+                      fontSize: 28,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     _translateMuscle(exercise.muscleGroup),
-                    style: const TextStyle(
-                      fontSize: 16, 
-                      color: AppConstants.primaryOrange, 
-                      fontWeight: FontWeight.w600
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: primaryColor,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     'Beschreibung',
                     style: TextStyle(
-                      fontSize: 18, 
-                      fontWeight: FontWeight.bold, 
-                      color: Colors.white
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     exercise.description,
-                    style: const TextStyle(
-                      fontSize: 16, 
-                      color: Colors.white70, 
-                      height: 1.6
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: subtitleColor,
+                      height: 1.6,
                     ),
                   ),
                   const SizedBox(height: 32),
-                  const Text(
+                  Text(
                     'Tipps zur Ausführung',
                     style: TextStyle(
-                      fontSize: 18, 
-                      fontWeight: FontWeight.bold, 
-                      color: Colors.white
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: textColor,
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -158,18 +165,18 @@ class _LibraryScreenState extends State<LibraryScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppConstants.primaryOrange.withOpacity(0.1),
+                      color: primaryColor.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppConstants.primaryOrange.withOpacity(0.3)
+                        color: primaryColor.withValues(alpha: 0.3),
                       ),
                     ),
                     child: Text(
                       exercise.tips,
-                      style: const TextStyle(
-                        fontSize: 16, 
-                        color: Colors.white, 
-                        height: 1.6
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: textColor,
+                        height: 1.6,
                       ),
                     ),
                   ),
@@ -187,51 +194,69 @@ class _LibraryScreenState extends State<LibraryScreen> {
     final nameController = TextEditingController();
     String selectedGroup = 'Chest';
     final List<String> availableGroups = [
-      'Arms', 'Back', 'Cardio', 'Chest', 'Core', 'Full Body', 'Legs', 'Shoulders'
+      'Arms',
+      'Back',
+      'Cardio',
+      'Chest',
+      'Core',
+      'Full Body',
+      'Legs',
+      'Shoulders',
     ];
+
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final cardColor = theme.colorScheme.surface;
+    final textColor = theme.colorScheme.onSurface;
+    final subtitleColor = theme.textTheme.bodySmall?.color ?? Colors.grey;
+    final bgColor = theme.scaffoldBackgroundColor;
 
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppConstants.cardDark,
+        backgroundColor: cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          'Neue Übung', 
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+        title: Text(
+          'Neue Übung',
+          style: TextStyle(color: textColor, fontWeight: FontWeight.bold),
         ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: 'Name der Übung',
-                labelStyle: const TextStyle(color: Colors.grey),
+                labelStyle: TextStyle(color: subtitleColor),
                 enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.shade800)
+                  borderSide: BorderSide(color: theme.dividerColor),
                 ),
-                focusedBorder: const UnderlineInputBorder(
-                  borderSide: BorderSide(color: AppConstants.primaryOrange)
+                focusedBorder: UnderlineInputBorder(
+                  borderSide: BorderSide(color: primaryColor),
                 ),
               ),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: selectedGroup,
-              dropdownColor: AppConstants.backgroundDark,
-              style: const TextStyle(color: Colors.white),
+              dropdownColor: bgColor,
+              style: TextStyle(color: textColor),
               decoration: InputDecoration(
                 labelText: 'Muskelgruppe',
-                labelStyle: const TextStyle(color: Colors.grey),
+                labelStyle: TextStyle(color: subtitleColor),
                 enabledBorder: UnderlineInputBorder(
-                  borderSide: BorderSide(color: Colors.grey.shade800)
+                  borderSide: BorderSide(color: theme.dividerColor),
                 ),
               ),
-              items: availableGroups.map((g) => DropdownMenuItem(
-                value: g, 
-                child: Text(_translateMuscle(g))
-              )).toList(),
+              items: availableGroups
+                  .map(
+                    (g) => DropdownMenuItem(
+                      value: g,
+                      child: Text(_translateMuscle(g)),
+                    ),
+                  )
+                  .toList(),
               onChanged: (value) {
                 if (value != null) selectedGroup = value;
               },
@@ -241,27 +266,32 @@ class _LibraryScreenState extends State<LibraryScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Abbrechen', style: TextStyle(color: Colors.grey)),
+            child: Text('Abbrechen', style: TextStyle(color: subtitleColor)),
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppConstants.primaryOrange,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             onPressed: () async {
               if (nameController.text.isNotEmpty) {
                 Navigator.pop(context);
                 setState(() => _isLoading = true);
                 await ApiService.createCustomExercise(
-                  nameController.text, 
-                  selectedGroup
+                  nameController.text,
+                  selectedGroup,
                 );
                 await _loadExercises();
               }
             },
             child: const Text(
-              'Speichern', 
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)
+              'Speichern',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -271,34 +301,28 @@ class _LibraryScreenState extends State<LibraryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final primaryColor = theme.colorScheme.primary;
+    final cardColor = theme.colorScheme.surface;
+    final textColor = theme.colorScheme.onSurface;
+    final subtitleColor = theme.textTheme.bodySmall?.color ?? Colors.grey;
+    final fillColor = theme.inputDecorationTheme.fillColor ?? cardColor;
+
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: AppConstants.backgroundDark,
-        elevation: 0,
-        title: const Text(
-          'Übungen',
-          style: TextStyle(
-            fontSize: 28, 
-            fontWeight: FontWeight.bold, 
-            color: Colors.white
-          ),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Übungen')),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppConstants.primaryOrange))
+          ? Center(child: CircularProgressIndicator(color: primaryColor))
           : Column(
               children: [
                 Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: TextField(
                     controller: _searchController,
-                    style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
                       hintText: 'Übung suchen...',
-                      hintStyle: const TextStyle(color: Colors.grey),
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      prefixIcon: Icon(Icons.search, color: subtitleColor),
                       filled: true,
-                      fillColor: AppConstants.cardDark,
+                      fillColor: fillColor,
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -327,16 +351,20 @@ class _LibraryScreenState extends State<LibraryScreen> {
                               _filterExercises();
                             }
                           },
-                          selectedColor: AppConstants.primaryOrange.withOpacity(0.2),
-                          backgroundColor: AppConstants.cardDark,
+                          selectedColor: primaryColor.withValues(alpha: 0.2),
+                          backgroundColor: cardColor,
                           labelStyle: TextStyle(
-                            color: isSelected ? AppConstants.primaryOrange : Colors.grey,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected ? primaryColor : subtitleColor,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                             side: BorderSide(
-                              color: isSelected ? AppConstants.primaryOrange : Colors.transparent
+                              color: isSelected
+                                  ? primaryColor
+                                  : Colors.transparent,
                             ),
                           ),
                         ),
@@ -349,35 +377,36 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   child: ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16.0),
                     itemCount: _filteredExercises.length,
-                    separatorBuilder: (context, index) => const Divider(
-                      color: Colors.white10, 
-                      height: 1
-                    ),
+                    separatorBuilder: (context, index) =>
+                        Divider(color: theme.dividerColor, height: 1),
                     itemBuilder: (context, index) {
                       final exercise = _filteredExercises[index];
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(vertical: 4),
                         leading: CircleAvatar(
-                          backgroundColor: AppConstants.cardDark,
-                          child: const Icon(
-                            Icons.fitness_center, 
-                            color: Colors.white70, 
-                            size: 20
+                          backgroundColor: fillColor,
+                          child: Icon(
+                            Icons.fitness_center,
+                            color: subtitleColor,
+                            size: 20,
                           ),
                         ),
                         title: Text(
                           exercise.name,
-                          style: const TextStyle(
-                            color: Colors.white, 
-                            fontSize: 16, 
-                            fontWeight: FontWeight.w500
+                          style: TextStyle(
+                            color: textColor,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         subtitle: Text(
                           _translateMuscle(exercise.muscleGroup),
-                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          style: TextStyle(color: subtitleColor, fontSize: 13),
                         ),
-                        trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+                        trailing: Icon(
+                          Icons.chevron_right,
+                          color: subtitleColor,
+                        ),
                         onTap: () => _showExerciseDetails(exercise),
                       );
                     },
@@ -387,7 +416,6 @@ class _LibraryScreenState extends State<LibraryScreen> {
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddExerciseDialog,
-        backgroundColor: AppConstants.primaryOrange,
         child: const Icon(Icons.add, color: Colors.white),
       ),
     );

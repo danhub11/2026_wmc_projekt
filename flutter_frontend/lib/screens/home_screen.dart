@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
-import '../core/constants.dart';
+import '../core/settings_manager.dart';
 import '../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -28,7 +28,6 @@ class _HomeScreenState extends State<HomeScreen> {
         isLoading = false;
       });
     } catch (e) {
-      // Bei Fehler leere Liste anzeigen
       setState(() {
         isLoading = false;
       });
@@ -37,38 +36,43 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final primaryColor = colorScheme.primary;
+    final cardColor = colorScheme.surface;
+    final textColor = colorScheme.onSurface;
+    final subtitleColor = theme.textTheme.bodySmall?.color ?? Colors.grey;
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Good morning, Athlete',
             style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: textColor,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Ready to crush your goals today?',
-            style: TextStyle(color: Colors.grey, fontSize: 16),
+            style: TextStyle(color: subtitleColor, fontSize: 16),
           ),
           const SizedBox(height: 24),
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppConstants.primaryOrange,
+                backgroundColor: primaryColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),
-              onPressed: () {
-                // Hier kommt später die Navigation zum Workout rein
-              },
+              onPressed: () {},
               icon: const Icon(Icons.fitness_center, color: Colors.white),
               label: const Text(
                 'Quick Start Workout',
@@ -85,24 +89,22 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppConstants.cardDark,
+                color: cardColor,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(
-                        Icons.trending_up,
-                        color: AppConstants.primaryOrange,
-                      ),
-                      SizedBox(width: 8),
+                      Icon(Icons.trending_up, color: primaryColor),
+                      const SizedBox(width: 8),
                       Text(
                         'Weekly Activity',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
+                          color: textColor,
                         ),
                       ),
                     ],
@@ -110,9 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 24),
                   Expanded(
                     child: isLoading
-                        ? const Center(
+                        ? Center(
                             child: CircularProgressIndicator(
-                              color: AppConstants.primaryOrange,
+                              color: primaryColor,
                             ),
                           )
                         : BarChart(
@@ -120,25 +122,32 @@ class _HomeScreenState extends State<HomeScreen> {
                               alignment: BarChartAlignment.spaceAround,
                               borderData: FlBorderData(show: false),
                               gridData: const FlGridData(show: false),
-                              titlesData: const FlTitlesData(
-                                leftTitles: AxisTitles(
+                              titlesData: FlTitlesData(
+                                leftTitles: const AxisTitles(
                                   sideTitles: SideTitles(showTitles: false),
                                 ),
-                                rightTitles: AxisTitles(
+                                rightTitles: const AxisTitles(
                                   sideTitles: SideTitles(showTitles: false),
                                 ),
-                                topTitles: AxisTitles(
+                                topTitles: const AxisTitles(
                                   sideTitles: SideTitles(showTitles: false),
                                 ),
                                 bottomTitles: AxisTitles(
                                   sideTitles: SideTitles(
                                     showTitles: true,
                                     reservedSize: 30,
+                                    getTitlesWidget: (value, meta) => Text(
+                                      meta.formattedValue,
+                                      style: TextStyle(
+                                        color: subtitleColor,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ),
                                 ),
                               ),
                               barGroups: weeklyData.isEmpty
-                                  ? [] // Zeige leeres Chart, falls noch keine Daten existieren
+                                  ? []
                                   : weeklyData.asMap().entries.map((entry) {
                                       return BarChartGroupData(
                                         x: entry.key,
@@ -150,7 +159,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       .toString(),
                                                 ) ??
                                                 0,
-                                            color: AppConstants.primaryOrange,
+                                            color: primaryColor,
                                             width: 20,
                                             borderRadius: BorderRadius.circular(
                                               4,
@@ -170,19 +179,26 @@ class _HomeScreenState extends State<HomeScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppConstants.cardDark,
+              color: cardColor,
               borderRadius: BorderRadius.circular(16),
             ),
-            child: const Column(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   'Last Workout',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
                 ),
-                SizedBox(height: 4),
-                Text('January 25, 2026', style: TextStyle(color: Colors.grey)),
-                SizedBox(height: 16),
+                const SizedBox(height: 4),
+                Text(
+                  'January 25, 2026',
+                  style: TextStyle(color: subtitleColor),
+                ),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -194,9 +210,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: textColor,
                           ),
                         ),
-                        Text('Exercises', style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'Exercises',
+                          style: TextStyle(color: subtitleColor),
+                        ),
                       ],
                     ),
                     Column(
@@ -207,22 +227,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: textColor,
                           ),
                         ),
-                        Text('Duration', style: TextStyle(color: Colors.grey)),
+                        Text(
+                          'Duration',
+                          style: TextStyle(color: subtitleColor),
+                        ),
                       ],
                     ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          '12,450 kg',
+                          '12,450 ${settingsManager.useKg ? 'kg' : 'lbs'}',
                           style: TextStyle(
                             fontSize: 24,
                             fontWeight: FontWeight.bold,
+                            color: textColor,
                           ),
                         ),
-                        Text('Volume', style: TextStyle(color: Colors.grey)),
+                        Text('Volume', style: TextStyle(color: subtitleColor)),
                       ],
                     ),
                   ],
