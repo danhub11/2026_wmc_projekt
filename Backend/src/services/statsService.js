@@ -23,6 +23,117 @@ router.get('/dashboard/weekly', (req, res) => {
     });
 });
 
+router.get('/dashboard/highlights', (req, res) => {
+    const now = new Date();
+    const monday = new Date(now);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+    const nextMonday = new Date(monday);
+    nextMonday.setDate(monday.getDate() + 7);
+
+    const weekStart = monday.toISOString();
+    const weekEnd = nextMonday.toISOString();
+
+    const queries = {
+        strongestLift: `
+            SELECT e.name as exercise_name, w.weight_kg, w.reps
+            FROM workouts w
+            JOIN exercises e ON e.id = w.exercise_id
+            WHERE w.date >= ? AND w.date < ? AND w.set_type != 'warmup'
+            ORDER BY w.weight_kg DESC, w.reps DESC
+            LIMIT 1
+        `,
+        mostSets: `
+            SELECT e.name as exercise_name, COUNT(w.id) as set_count
+            FROM workouts w
+            JOIN exercises e ON e.id = w.exercise_id
+            WHERE w.date >= ? AND w.date < ? AND w.set_type != 'warmup'
+            GROUP BY w.exercise_id
+            ORDER BY set_count DESC, e.name ASC
+            LIMIT 1
+        `,
+        highestVolume: `
+            SELECT e.name as exercise_name, SUM(COALESCE(w.weight_kg, 0) * COALESCE(w.reps, 0)) as volume_kg
+            FROM workouts w
+            JOIN exercises e ON e.id = w.exercise_id
+            WHERE w.date >= ? AND w.date < ? AND w.set_type != 'warmup'
+            GROUP BY w.exercise_id
+            ORDER BY volume_kg DESC, e.name ASC
+            LIMIT 1
+        `,
+        newPr: `
+            WITH this_week AS (
+                SELECT w.exercise_id, MAX(w.weight_kg) as week_max
+                FROM workouts w
+                WHERE w.date >= ? AND w.date < ? AND w.set_type != 'warmup'
+                GROUP BY w.exercise_id
+            ),
+            previous_best AS (
+                SELECT w.exercise_id, MAX(w.weight_kg) as previous_max
+                FROM workouts w
+                WHERE w.date < ? AND w.set_type != 'warmup'
+                GROUP BY w.exercise_id
+            )
+            SELECT e.name as exercise_name,
+                   tw.week_max as weight_kg,
+                   COALESCE(pb.previous_max, 0) as previous_max,
+                   (tw.week_max - COALESCE(pb.previous_max, 0)) as improvement
+            FROM this_week tw
+            JOIN exercises e ON e.id = tw.exercise_id
+            LEFT JOIN previous_best pb ON pb.exercise_id = tw.exercise_id
+            WHERE tw.week_max > COALESCE(pb.previous_max, 0)
+            ORDER BY improvement DESC, tw.week_max DESC
+            LIMIT 1
+        `,
+        newPrCount: `
+            WITH this_week AS (
+                SELECT w.exercise_id, MAX(w.weight_kg) as week_max
+                FROM workouts w
+                WHERE w.date >= ? AND w.date < ? AND w.set_type != 'warmup'
+                GROUP BY w.exercise_id
+            ),
+            previous_best AS (
+                SELECT w.exercise_id, MAX(w.weight_kg) as previous_max
+                FROM workouts w
+                WHERE w.date < ? AND w.set_type != 'warmup'
+                GROUP BY w.exercise_id
+            )
+            SELECT COUNT(*) as pr_count
+            FROM this_week tw
+            LEFT JOIN previous_best pb ON pb.exercise_id = tw.exercise_id
+            WHERE tw.week_max > COALESCE(pb.previous_max, 0)
+        `,
+    };
+
+    db.get(queries.strongestLift, [weekStart, weekEnd], (errStrong, strongestLift) => {
+        if (errStrong) return res.status(500).json({ error: errStrong.message });
+
+        db.get(queries.mostSets, [weekStart, weekEnd], (errSets, mostSets) => {
+            if (errSets) return res.status(500).json({ error: errSets.message });
+
+            db.get(queries.highestVolume, [weekStart, weekEnd], (errVolume, highestVolume) => {
+                if (errVolume) return res.status(500).json({ error: errVolume.message });
+
+                db.get(queries.newPr, [weekStart, weekEnd, weekStart], (errPr, newPr) => {
+                    if (errPr) return res.status(500).json({ error: errPr.message });
+
+                    db.get(queries.newPrCount, [weekStart, weekEnd, weekStart], (errPrCount, prCountRow) => {
+                        if (errPrCount) return res.status(500).json({ error: errPrCount.message });
+
+                        res.json({
+                            strongestLift: strongestLift || null,
+                            newPr: newPr || null,
+                            newPrCount: prCountRow?.pr_count || 0,
+                            mostSets: mostSets || null,
+                            highestVolume: highestVolume || null,
+                        });
+                    });
+                });
+            });
+        });
+    });
+});
+
 router.get('/stats/pr/:exerciseId', (req, res) => {
     const sql = `
         SELECT MAX(weight_kg) as max_weight, date, reps 
